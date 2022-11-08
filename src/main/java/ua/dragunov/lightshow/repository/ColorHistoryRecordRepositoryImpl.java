@@ -23,6 +23,7 @@ public class ColorHistoryRecordRepositoryImpl implements ColorHistoryRecordRepos
 
             transaction.commit();
 
+
         } catch (Exception e) {
             if (transaction != null && transaction.isActive()) {
                 transaction.rollback();

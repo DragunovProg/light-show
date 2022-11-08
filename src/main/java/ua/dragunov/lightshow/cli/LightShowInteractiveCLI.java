@@ -32,7 +32,7 @@ public class LightShowInteractiveCLI {
 
         Command<String> command = commandFactory.newLightShowCommand(new CreateLightShowRequest(
                 label,
-                colorList,
+                colorList.trim().split(","),
                 switchingInterval,
                 amountSwitching
         ));
@@ -41,4 +41,5 @@ public class LightShowInteractiveCLI {
 
         System.out.println(switchingHistory);
     }
+
 }

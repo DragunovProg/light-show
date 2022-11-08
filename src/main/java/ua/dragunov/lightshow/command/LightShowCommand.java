@@ -7,9 +7,7 @@ import ua.dragunov.lightshow.exceptions.LightShowException;
 import ua.dragunov.lightshow.model.Color;
 import ua.dragunov.lightshow.model.ColorHistoryRecord;
 import ua.dragunov.lightshow.model.Light;
-import ua.dragunov.lightshow.repository.ColorHistoryRecordRepositoryImpl;
-import ua.dragunov.lightshow.repository.ColorRepositoryImpl;
-import ua.dragunov.lightshow.repository.LightRepositoryImpl;
+import ua.dragunov.lightshow.repository.*;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -18,15 +16,15 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class LightShowCommand implements Command<String>{
     private static final Logger logger = LogManager.getLogger(LightShowCommand.class.getName());
-    private final LightRepositoryImpl lightRepository;
-    private final ColorRepositoryImpl colorRepository;
-    private final ColorHistoryRecordRepositoryImpl colorHistoryRecordRepository;
+    private final LightRepository lightRepository;
+    private final ColorRepository colorRepository;
+    private final ColorHistoryRecordRepository colorHistoryRecordRepository;
 
     private final CreateLightShowRequest context;
 
-    public LightShowCommand(LightRepositoryImpl lightRepository,
-                            ColorRepositoryImpl colorRepository,
-                            ColorHistoryRecordRepositoryImpl colorHistoryRecordRepository,
+    public LightShowCommand(LightRepository lightRepository,
+                            ColorRepository colorRepository,
+                            ColorHistoryRecordRepository colorHistoryRecordRepository,
                             CreateLightShowRequest context) {
 
         this.lightRepository = lightRepository;
@@ -47,7 +45,6 @@ public class LightShowCommand implements Command<String>{
                 light.setLabel(context.label());
                 light.setColor(getRandomColor(light, allColorsByUser));
                 light.setEnabled(false);
-
                 lightRepository.save(light);
             }
 
@@ -79,6 +76,11 @@ public class LightShowCommand implements Command<String>{
                     light.setColor(randomColor);
                     switchingHistory.append(String.format(" => '%s'", light.getColor().getName()));
                     colorHistoryRecordRepository.save(colorHistoryRecord);
+                    logger.info(String.format("Light '%s' changed color from ‘%s’ to ‘%s’ at %s", light.getLabel()
+                            , colorHistoryRecord.getOldColor().getName()
+                            , colorHistoryRecord.getNewColor().getName()
+                            , Instant
+                                    .now().toString()));
 
                     Thread.sleep(context.switchingInterval() * 1000);
 
@@ -89,17 +91,16 @@ public class LightShowCommand implements Command<String>{
 
 
             light.setEnabled(false);
-            lightRepository.update(light);
+            lightRepository.save(light);
 
             return switchingHistory.toString();
 
     }
 
     List<Color> findAllColorsByUser() throws LightShowException {
-        String[] colorNames = context.colorList().trim().split(",");
         List<Color> allColors = colorRepository.findAll();
         List<Color> colorsByUser = new ArrayList<>();
-        for (String colorName : colorNames) {
+        for (String colorName : context.colorList()) {
             colorsByUser.add(allColors.stream()
                     .filter(color -> color.getName().equals(colorName))
                     .findFirst()

@@ -1,16 +1,15 @@
 package ua.dragunov.lightshow.command;
 
 import ua.dragunov.lightshow.command.data.CreateLightShowRequest;
-import ua.dragunov.lightshow.repository.ColorHistoryRecordRepositoryImpl;
-import ua.dragunov.lightshow.repository.ColorRepositoryImpl;
-import ua.dragunov.lightshow.repository.LightRepositoryImpl;
+import ua.dragunov.lightshow.repository.*;
+
 
 public class CommandFactory {
-    private final LightRepositoryImpl lightRepository;
-    private final ColorRepositoryImpl colorRepository;
-    private final ColorHistoryRecordRepositoryImpl colorHistoryRecordRepository;
+    private final LightRepository lightRepository;
+    private final ColorRepository colorRepository;
+    private final ColorHistoryRecordRepository colorHistoryRecordRepository;
 
-    public CommandFactory(LightRepositoryImpl lightRepository, ColorRepositoryImpl colorRepository, ColorHistoryRecordRepositoryImpl colorHistoryRecordRepository) {
+    public CommandFactory(LightRepository lightRepository, ColorRepository colorRepository, ColorHistoryRecordRepository colorHistoryRecordRepository) {
         this.lightRepository = lightRepository;
         this.colorRepository = colorRepository;
         this.colorHistoryRecordRepository = colorHistoryRecordRepository;
