@@ -1,13 +1,16 @@
 package ua.dragunov.lightshow.command;
 
+import jakarta.persistence.EntityTransaction;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.query.Query;
 import ua.dragunov.lightshow.command.data.CreateLightShowRequest;
 import ua.dragunov.lightshow.exceptions.LightShowException;
 import ua.dragunov.lightshow.model.Color;
 import ua.dragunov.lightshow.model.ColorHistoryRecord;
 import ua.dragunov.lightshow.model.Light;
-import ua.dragunov.lightshow.repository.*;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,37 +18,33 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class LightShowCommand implements Command<String>{
-    private static final Logger logger = LogManager.getLogger(LightShowCommand.class.getName());
-    private final LightRepository lightRepository;
-    private final ColorRepository colorRepository;
-    private final ColorHistoryRecordRepository colorHistoryRecordRepository;
-
+    private static final Logger colors = LogManager.getLogger(LightShowCommand.class.getName());
+    private final SessionFactory sessionFactory;
     private final CreateLightShowRequest context;
 
-    public LightShowCommand(LightRepository lightRepository,
-                            ColorRepository colorRepository,
-                            ColorHistoryRecordRepository colorHistoryRecordRepository,
-                            CreateLightShowRequest context) {
-
-        this.lightRepository = lightRepository;
-        this.colorRepository = colorRepository;
-        this.colorHistoryRecordRepository = colorHistoryRecordRepository;
+    public LightShowCommand(SessionFactory sessionFactory, CreateLightShowRequest context) {
+        this.sessionFactory = sessionFactory;
         this.context = context;
     }
 
     @Override
     public String execute() throws LightShowException {
         StringBuilder switchingHistory = new StringBuilder();
-        List<Color> allColorsByUser = findAllColorsByUser();
-        Light light = lightRepository.findByLabel(context.label());
+        Transaction transaction = null;
+        try(var session = sessionFactory.openSession()) {
+            List<Color> allColorsByUser = findAllColorsByUser();
 
+            transaction = session.beginTransaction();
+
+            Light light = session.createQuery("from Light l join fetch l.color where l.label = :label",Light.class)
+                    .setParameter("label", context.label()).uniqueResult();
 
             if (light == null) {
                 light = new Light();
                 light.setLabel(context.label());
                 light.setColor(getRandomColor(light, allColorsByUser));
                 light.setEnabled(false);
-                lightRepository.save(light);
+                session.persist(light);
             }
 
             if (light.isEnabled() == true) {
@@ -64,6 +63,7 @@ public class LightShowCommand implements Command<String>{
 
             switchingHistory.append(String.format("Light %s changed color '%s'", light.getLabel(), light.getColor().getName()));
 
+            List<ColorHistoryRecord> colorHistoryRecords = new ArrayList<>();
             for (int i = 0; i < context.amountSwitching(); i++) {
                 try {
                     Color randomColor = getRandomColor(light, allColorsByUser);
@@ -75,8 +75,8 @@ public class LightShowCommand implements Command<String>{
 
                     light.setColor(randomColor);
                     switchingHistory.append(String.format(" => '%s'", light.getColor().getName()));
-                    colorHistoryRecordRepository.save(colorHistoryRecord);
-                    logger.info(String.format("Light '%s' changed color from ‘%s’ to ‘%s’ at %s", light.getLabel()
+                    colorHistoryRecords.add(colorHistoryRecord);
+                    colors.info(String.format("Light '%s' changed color from ‘%s’ to ‘%s’ at %s", light.getLabel()
                             , colorHistoryRecord.getOldColor().getName()
                             , colorHistoryRecord.getNewColor().getName()
                             , Instant
@@ -89,25 +89,52 @@ public class LightShowCommand implements Command<String>{
                 }
             }
 
-
             light.setEnabled(false);
-            lightRepository.save(light);
+
+
+            colorHistoryRecords.forEach(colorHistoryRecord -> session.persist(colorHistoryRecord));
+
+            transaction.commit();
 
             return switchingHistory.toString();
-
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw new LightShowException(e);
+        }
     }
 
     List<Color> findAllColorsByUser() throws LightShowException {
-        List<Color> allColors = colorRepository.findAll();
-        List<Color> colorsByUser = new ArrayList<>();
-        for (String colorName : context.colorList()) {
-            colorsByUser.add(allColors.stream()
-                    .filter(color -> color.getName().equals(colorName))
-                    .findFirst()
-                    .orElseThrow(() -> new LightShowException(String.format("Color name %s does not exist!!", colorName))));
+        EntityTransaction transaction = null;
+
+        try(var session = sessionFactory.openSession()) {
+            transaction = session.beginTransaction();
+
+            Query<Color> query = session.createQuery("from Color",Color.class);
+
+            List<Color> colors = query.getResultList();
+
+            transaction.commit();
+
+            List<Color> colorsByUser = new ArrayList<>();
+            for (String colorName : context.colorList()) {
+                colorsByUser.add(colors.stream()
+                        .filter(color -> color.getName().equals(colorName))
+                        .findFirst()
+                        .orElseThrow(() -> new LightShowException(String.format("Color name %s does not exist!!", colorName))));
+            }
+
+            return colorsByUser;
+
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw new LightShowException(e);
         }
 
-        return colorsByUser;
+
     }
 
     Color getRandomColor(Light light, List<Color> colors) {

@@ -8,9 +8,6 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.service.ServiceRegistry;
 import ua.dragunov.lightshow.cli.LightShowInteractiveCLI;
 import ua.dragunov.lightshow.command.CommandFactory;
-import ua.dragunov.lightshow.repository.ColorHistoryRecordRepositoryImpl;
-import ua.dragunov.lightshow.repository.ColorRepositoryImpl;
-import ua.dragunov.lightshow.repository.LightRepositoryImpl;
 
 public class LightShowApp {
     private final static Logger logger = LogManager.getLogger(LightShowApp.class.getName());
@@ -25,11 +22,8 @@ public class LightShowApp {
                 .build();
              SessionFactory sessionFactory = new Configuration().buildSessionFactory(serviceRegistry)) {
 
-            LightRepositoryImpl lightRepository = new LightRepositoryImpl(sessionFactory);
-            ColorRepositoryImpl colorRepository = new ColorRepositoryImpl(sessionFactory);
-            ColorHistoryRecordRepositoryImpl colorHistoryRecordRepository = new ColorHistoryRecordRepositoryImpl(sessionFactory);
 
-            CommandFactory commandFactory = new CommandFactory(lightRepository, colorRepository, colorHistoryRecordRepository);
+            CommandFactory commandFactory = new CommandFactory(sessionFactory);
 
             LightShowInteractiveCLI cli = new LightShowInteractiveCLI(commandFactory);
 

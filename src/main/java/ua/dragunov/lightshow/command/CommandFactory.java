@@ -1,22 +1,18 @@
 package ua.dragunov.lightshow.command;
 
+import org.hibernate.SessionFactory;
 import ua.dragunov.lightshow.command.data.CreateLightShowRequest;
-import ua.dragunov.lightshow.repository.*;
 
 
 public class CommandFactory {
-    private final LightRepository lightRepository;
-    private final ColorRepository colorRepository;
-    private final ColorHistoryRecordRepository colorHistoryRecordRepository;
+    private final SessionFactory sessionFactory;
+    public CommandFactory(SessionFactory sessionFactory) {
 
-    public CommandFactory(LightRepository lightRepository, ColorRepository colorRepository, ColorHistoryRecordRepository colorHistoryRecordRepository) {
-        this.lightRepository = lightRepository;
-        this.colorRepository = colorRepository;
-        this.colorHistoryRecordRepository = colorHistoryRecordRepository;
+        this.sessionFactory = sessionFactory;
     }
 
 
     public Command<String> newLightShowCommand(CreateLightShowRequest context) {
-        return new LightShowCommand(lightRepository, colorRepository, colorHistoryRecordRepository, context);
+        return new LightShowCommand(sessionFactory, context);
     }
 }
